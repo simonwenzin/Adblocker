@@ -1,0 +1,14 @@
+[
+  {
+    "type": "block",
+    "domain": "example.com"
+  },
+  {
+    "type": "block",
+    "domain": "hello.com"
+  },
+  {
+    "type": "block",
+    "domain": "ads.com"
+  }
+]
