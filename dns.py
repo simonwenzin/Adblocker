@@ -1,32 +1,31 @@
 from dnslib.server import DNSServer, BaseResolver
-from dnslib import RR, QTYPE, A
+from dnslib import RR, QTYPE, A, DNSRecord
 import socket
+import logging
 
-from engine.evaluate import evaluate
-from engine.evaluate import normalize_domain
-
-
-def forward_request(request):
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.sendto(request.pack(), ("8.8.8.8", 53))
-    data, _ = sock.recvfrom(1024)
-    return data
+from engine.evaluate import DomainEvaluator
+from engine.normalize import normalize_domain
+from engine.rules import parse_rules
 
 
 class AdblockResolver(BaseResolver):
 
+    def __init__(self):
+        self.evaluator = DomainEvaluator(parse_rules())
+        self.logger = logging.getLogger(__name__)
+
     def resolve(self, request, handler):
-        print("RECEIVED REQUEST")
+        self.logger.info("Resolving request.")
         domain = normalize_domain(str(request.q.qname))
-        print(f"Query: {domain}")
-        result = evaluate(domain)
+        self.logger.info(f"Query: {domain}")
+        result = self.evaluator.evaluate(domain)
 
         if result == "block":
-            print(f"Blocked: {domain}")
+            self.logger.info(f"Blocked: {domain}")
             return self.block_response(request)
         else:
-            print(f"Good: {domain}")
-            return forward_request(request)
+            self.logger.info(f"Good: {domain}")
+            return self.forward(request)
 
     def block_response(self, request):
         reply = request.reply()
@@ -40,10 +39,21 @@ class AdblockResolver(BaseResolver):
         )
         return reply
 
+    def forward(self, request):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.settimeout(2)
+
+        try:
+            sock.sendto(request.pack(), ("8.8.8.8", 53))
+            data, _ = sock.recvfrom(4096)
+            return DNSRecord.parse(data)
+        except Exception as e:
+            self.logger.error("Forward error:", e)
+            return self.block_response(request)
+
+
 if __name__ == "__main__":
-    resolver = AdblockResolver()
+    logging.basicConfig(level=logging.INFO)
 
-    server = DNSServer(resolver, port=5353, address="127.0.0.1")
-    print("Listening on port 5353")
-
+    server = DNSServer(AdblockResolver(), port=5353, address="127.0.0.1")
     server.start()
