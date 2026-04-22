@@ -55,5 +55,5 @@ class AdblockResolver(BaseResolver):
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
-    server = DNSServer(AdblockResolver(), port=5353, address="127.0.0.1")
+    server = DNSServer(AdblockResolver(), port=53, address="127.0.0.1")
     server.start()
