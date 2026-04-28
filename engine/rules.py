@@ -21,6 +21,7 @@ def parse_rules():
 
     return rules
 
+
 def parse_blockrules():
     blocked_domains = []
     logging.info("LOADING BLOCKED DOMAINS")
@@ -28,13 +29,12 @@ def parse_blockrules():
     with open("data/ads.txt") as f:
         for line in f:
             line = line.strip()
-        
+
             if not line or line.startswith("#"):
                 continue
-            
+
             parts = line.split(" ")
             domain = parts[1]
             blocked_domains.append(Rule("block", domain))
-    
-    return blocked_domains
 
+    return blocked_domains

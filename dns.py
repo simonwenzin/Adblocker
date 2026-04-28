@@ -5,27 +5,32 @@ import logging
 
 from engine.evaluate import DomainEvaluator
 from engine.normalize import normalize_domain
-from engine.rules import parse_rules
+from engine.rules import parse_rules, parse_blockrules
 
 
 class AdblockResolver(BaseResolver):
 
     def __init__(self):
-        self.evaluator = DomainEvaluator(parse_rules())
+        self.evaluator = DomainEvaluator(parse_rules(), parse_blockrules())
         self.logger = logging.getLogger(__name__)
 
     def resolve(self, request, handler):
         self.logger.info("Resolving request.")
-        domain = normalize_domain(str(request.q.qname))
-        self.logger.info(f"Query: {domain}")
-        result = self.evaluator.evaluate(domain)
 
-        if result == "block":
-            self.logger.info(f"Blocked: {domain}")
-            return self.block_response(request)
+        domain = str(request.q.qname)
+        self.logger.info(f"Query: {domain} ({QTYPE[request.q.qtype]})")
+
+        prel_result = self.evaluator.evaluate_domain(domain)
+
+        if prel_result == "allow":
+            domain = normalize_domain(domain)
+            result = self.evaluator.evaluate(domain)
+            if result == "allow":
+                return self.allow_domain(domain, request)
+            else:
+                return self.block_domain(domain, request)
         else:
-            self.logger.info(f"Good: {domain}")
-            return self.forward(request)
+            return self.block_domain(domain, request)
 
     def block_response(self, request):
         reply = request.reply()
@@ -51,9 +56,17 @@ class AdblockResolver(BaseResolver):
             self.logger.error("Forward error:", e)
             return self.block_response(request)
 
+    def block_domain(self, domain, request):
+        self.logger.info(f"Blocked: {domain}")
+        return self.block_response(request)
+
+    def allow_domain(self, domain, request):
+        self.logger.info(f"Good: {domain}")
+        return self.forward(request)
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
-    server = DNSServer(AdblockResolver(), port=53, address="127.0.0.1")
+    server = DNSServer(AdblockResolver(), port=5353, address="127.0.0.1")
     server.start()
