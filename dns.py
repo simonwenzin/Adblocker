@@ -4,8 +4,8 @@ import socket
 import logging
 
 from engine.evaluate import DomainEvaluator
-from engine.normalize import normalize_domain
 from engine.rules import parse_rules, parse_blockrules
+from cache import DecisionCache
 
 
 class AdblockResolver(BaseResolver):
@@ -13,22 +13,35 @@ class AdblockResolver(BaseResolver):
     def __init__(self):
         self.evaluator = DomainEvaluator(parse_rules(), parse_blockrules())
         self.logger = logging.getLogger(__name__)
+        self.cache = DecisionCache()
 
     def resolve(self, request, handler):
         self.logger.info("Resolving request.")
 
         domain = str(request.q.qname)
-        self.logger.info(f"Query: {domain} ({QTYPE[request.q.qtype]})")
+        qtype = QTYPE[request.q.qtype]
+        self.logger.info(f"Query: {domain} ({qtype})")
+
+        cached = self.cache.get(domain)
+        if cached:
+            self.logger.info(f"Cache HIT for {domain} ({qtype})")
+            if cached == "allow":
+                return self.allow_domain(domain, request)
+            else:
+                return self.block_domain(domain, request)
+        self.logger.info(f"Cache MISS for {domain} ({qtype})")
 
         prel_result = self.evaluator.evaluate_domain(domain)
 
         if prel_result == "allow":
-            domain = normalize_domain(domain)
             result = self.evaluator.evaluate(domain)
-            if result == "allow":
-                return self.allow_domain(domain, request)
-            else:
-                return self.block_domain(domain, request)
+        else:
+            result = "block"
+
+        self.cache.set(domain, result)
+
+        if result == "allow":
+            return self.allow_domain(domain, request)
         else:
             return self.block_domain(domain, request)
 
