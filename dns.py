@@ -10,10 +10,11 @@ from cache import DecisionCache
 
 class AdblockResolver(BaseResolver):
 
-    def __init__(self):
-        self.evaluator = DomainEvaluator(parse_rules(), parse_blockrules())
+    def __init__(self, evaluator=None, cache=None):
+        self.evaluator = evaluator or DomainEvaluator(parse_rules(), parse_blockrules())
+        self.cache = cache or DecisionCache()
+
         self.logger = logging.getLogger(__name__)
-        self.cache = DecisionCache()
 
     def resolve(self, request, handler):
         self.logger.info("Resolving request.")
