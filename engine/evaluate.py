@@ -7,15 +7,6 @@ class DomainEvaluator:
         self.rules = rules
         self.domain_rules = domain_rules
 
-    def evaluate(self, domain):
-        for rule in self.rules:
-            if rule.domain in normalize_domain(domain):
-                if rule.type == "block":
-                    return "block"
-            else:
-                continue
-        return "allow"
-
     def evaluate_domain(self, domain):
         for rule in self.domain_rules:
             if rule.domain in domain:
@@ -23,4 +14,13 @@ class DomainEvaluator:
                     return "block"
                 else:
                     continue
+        return self._evaluate(domain)
+
+    def _evaluate(self, domain):
+        for rule in self.rules:
+            if rule.domain in normalize_domain(domain):
+                if rule.type == "block":
+                    return "block"
+            else:
+                continue
         return "allow"

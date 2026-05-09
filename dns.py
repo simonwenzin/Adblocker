@@ -23,21 +23,17 @@ class AdblockResolver(BaseResolver):
         qtype = QTYPE[request.q.qtype]
         self.logger.info(f"Query: {domain} ({qtype})")
 
-        cached = self.cache.get(domain)
-        if cached:
+        cached_rule = self.cache.get(domain)
+
+        if cached_rule:
             self.logger.info(f"Cache HIT for {domain} ({qtype})")
-            if cached == "allow":
+            if cached_rule == "allow":
                 return self.allow_domain(domain, request)
             else:
                 return self.block_domain(domain, request)
         self.logger.info(f"Cache MISS for {domain} ({qtype})")
 
-        prel_result = self.evaluator.evaluate_domain(domain)
-
-        if prel_result == "allow":
-            result = self.evaluator.evaluate(domain)
-        else:
-            result = "block"
+        result = self.evaluator.evaluate_domain(domain)
 
         self.cache.set(domain, result)
 
